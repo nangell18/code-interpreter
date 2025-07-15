@@ -1,10 +1,12 @@
 from dotenv import load_dotenv
 from langchain import hub
+from langchain_experimental.agents import create_csv_agent
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain_experimental.tools import (
     PythonREPLTool,
 )  # this is a dangerous tool because it gives our llm an ability to write and execute python code in the interpreter
+from numpy.f2py.crackfortran import verbose
 
 load_dotenv()  # load all of our .env files to our environment
 
@@ -54,12 +56,25 @@ def main():
 
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-    agent_executor.invoke(
-        input={
-            "input": """generate and save in current working directory 15 QRcodes
-                                    that point to www.udemy.com/course/langchain, you have qrcode package installed already"""
-        }
-    )
+    """I got rid of this below because we are running the csv_agent"""
+    # agent_executor.invoke(
+    #     input={
+    #         "input": """generate and save in current working directory 15 QRcodes
+    #                                 that point to www.udemy.com/course/langchain, you have qrcode package installed already"""
+    #     }
+    # )
+
+    """1. the csv agent is build upon pandas agent which underneath the hood is a regular agent that uses
+    the python repl agent2. these agents are flaky, just be careful of the output because even though
+    it is a deterministic output, aka the llm model is writing code to get the answer, it did not input the 
+    entire csv file to the llm which in turn gave us the wrong result -> so even though we do give it reasoning,
+    does not mean the reasoning will go smoothly"""
+    csv_agent = create_csv_agent(
+        llm=ChatOpenAI(temperature=0, model = "gpt-4"),
+        path="episode_info.csv",
+        verbose=True)
+
+    csv_agent.invoke(input={"input":"How many columns are there in file episode_info.csv"})
 
 
 if __name__ == "__main__":
