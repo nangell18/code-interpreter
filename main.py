@@ -1,5 +1,8 @@
+from typing import Any
+
 from dotenv import load_dotenv
 from langchain import hub
+from langchain_core.tools import Tool
 from langchain_experimental.agents import create_csv_agent
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_react_agent, AgentExecutor
@@ -54,10 +57,10 @@ def main():
         tools=tools,
     )
 
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    python_agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
     """I got rid of this below because we are running the csv_agent"""
-    # agent_executor.invoke(
+    # python_agent_executor.invoke(
     #     input={
     #         "input": """generate and save in current working directory 15 QRcodes
     #                                 that point to www.udemy.com/course/langchain, you have qrcode package installed already"""
@@ -69,12 +72,48 @@ def main():
     it is a deterministic output, aka the llm model is writing code to get the answer, it did not input the 
     entire csv file to the llm which in turn gave us the wrong result -> so even though we do give it reasoning,
     does not mean the reasoning will go smoothly"""
-    csv_agent = create_csv_agent(
-        llm=ChatOpenAI(temperature=0, model = "gpt-4"),
+    csv_agent_executor: AgentExecutor = create_csv_agent(
+        llm=ChatOpenAI(temperature=0, model="gpt-4"),
         path="episode_info.csv",
-        verbose=True)
+        verbose=True,
+    )
 
-    csv_agent.invoke(input={"input":"How many columns are there in file episode_info.csv"})
+    # csv_agent.invoke(input={"input":"How many columns are there in file episode_info.csv"})
+
+    """----------Router Grand Agent----------"""
+
+    #we need this function because we need to plug in the 'input' key to ensure the program works correctly
+    def python_agent_executor_wrapper(original_prompt:str) -> dict[str,Any]:
+        return python_agent_executor.invoke({"input": original_prompt})
+
+    tools = [
+        Tool(
+            name="Python Agent",
+            func=python_agent_executor_wrapper,
+            description="""useful when you need to transform natural language to python and execute the python
+                            code, returning the results of the code execution
+                            DOES NOT ACCEPT CODE AS INPUT
+                            """,  # we put the line above because we do not want our csv agent to give its python
+            # to this function. that is why we only give it natural language
+        ),
+        Tool(
+            name="CSV Agent",
+            func=csv_agent_executor.invoke,
+            description="""useful when you need to answer questions over episode_info.csv file,
+                            takes an input the entire question and returns the answer after running pandas calculations""",
+        ),
+    ]
+
+    prompt = base_prompt.partial(instructions="")  # instructions not needed
+    grand_agent = create_react_agent(
+        prompt=prompt, llm=ChatOpenAI(temperature=0, model="gpt-4-turbo"), tools=tools
+    )
+
+    grand_agent_executor = AgentExecutor(agent=grand_agent, tools=tools, verbose=True)
+
+    print(grand_agent_executor.invoke({"input": "which season has the most episodes?"}))
+
+    print(grand_agent_executor.invoke({"input": "generate and save in current working directory 15 QRcodes that point to www.udemy.com/course/langchain, you have qrcode package installed already"}))
 
 
 if __name__ == "__main__":
