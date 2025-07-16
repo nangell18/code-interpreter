@@ -82,8 +82,8 @@ def main():
 
     """----------Router Grand Agent----------"""
 
-    #we need this function because we need to plug in the 'input' key to ensure the program works correctly
-    def python_agent_executor_wrapper(original_prompt:str) -> dict[str,Any]:
+    # we need this function because we need to plug in the 'input' key to ensure the program works correctly
+    def python_agent_executor_wrapper(original_prompt: str) -> dict[str, Any]:
         return python_agent_executor.invoke({"input": original_prompt})
 
     tools = [
@@ -113,7 +113,13 @@ def main():
 
     print(grand_agent_executor.invoke({"input": "which season has the most episodes?"}))
 
-    print(grand_agent_executor.invoke({"input": "generate and save in current working directory 15 QRcodes that point to www.udemy.com/course/langchain, you have qrcode package installed already"}))
+    print(
+        grand_agent_executor.invoke(
+            {
+                "input": "generate and save in current working directory 15 QRcodes that point to www.udemy.com/course/langchain, you have qrcode package installed already"
+            }
+        )
+    )
 
 
 if __name__ == "__main__":
